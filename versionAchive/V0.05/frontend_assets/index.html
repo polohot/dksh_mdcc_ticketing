@@ -1,0 +1,94 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+    <script src="https://cdn.jsdelivr.net/npm/tinymce@8.3.1/tinymce.min.js"></script>
+    <style>
+        body { margin: 0; padding: 0; overflow: hidden; }
+        /* Jira-like border focus */
+        .tox-tinymce { border: 1px solid #ccc !important; border-radius: 4px !important; }
+        .tox-tinymce:focus-within { border: 2px solid #2684FF !important; }
+    </style>
+</head>
+<body>
+
+<textarea id="mytextarea"></textarea>
+
+<script>
+// --- STREAMLIT COMM HELPER ---
+function sendToStreamlit(data) {
+    window.parent.postMessage({
+        isStreamlitMessage: true,
+        type: "streamlit:setComponentValue",
+        value: data
+    }, "*");
+}
+
+// --- EDITOR LOGIC ---
+let isInitialized = false;
+
+window.addEventListener("message", (event) => {
+    if (event.data.type === "streamlit:render") {
+        const args = event.data.args;
+        
+        if (!isInitialized) {
+            tinymce.init({
+                selector: '#mytextarea',
+                height: args.height,
+                
+                // --- REQUIRED FOR TINYMCE 7+ ---
+                license_key: 'gpl',
+                // --------------------------------
+
+                menubar: false,
+                statusbar: false,
+                plugins: args.plugins.join(' '),
+                toolbar: args.toolbar,
+                branding: false,
+                promotion: false,
+                
+                // JIRA-LIKE IMAGE HANDLING
+                paste_data_images: true,
+                automatic_uploads: true,
+                
+                // Custom handler to convert images to Base64 immediately
+                images_upload_handler: (blobInfo, progress) => new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.readAsDataURL(blobInfo.blob());
+                    reader.onload = () => resolve(reader.result);
+                    reader.onerror = (error) => reject(error);
+                }),
+                
+                // Content Style to match Jira/Streamlit font
+                content_style: `
+                    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; font-size: 14px; } 
+                    img { max-width: 100%; height: auto; }
+                `,
+
+                setup: function(editor) {
+                    editor.on('init', function() {
+                        // Set initial value
+                        editor.setContent(args.initialValue || "");
+                        isInitialized = true;
+                    });
+
+                    // Sync data back to Streamlit on any change
+                    editor.on('Change KeyUp ExecCommand', function() {
+                        sendToStreamlit(editor.getContent());
+                    });
+                }
+            });
+        }
+    }
+});
+
+// Signal Streamlit that we are ready
+window.parent.postMessage({
+    isStreamlitMessage: true,
+    type: "streamlit:componentReady",
+    apiVersion: 1
+}, "*");
+
+</script>
+</body>
+</html>

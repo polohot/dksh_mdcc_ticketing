@@ -1,6 +1,6 @@
 import json
 import streamlit as st
-from auth import render_login_sidebar
+from h_auth import render_login_sidebar
 st.set_page_config(page_title="Main", layout="wide")
 auth_logged_in, auth_user, auth_exp_dt = render_login_sidebar()
 
@@ -28,12 +28,15 @@ else:
         
 
 st.code("""
+[V0.05 - alpha] - 2025-12-22
+- Basic Create and view ticket
+
 [V0.04 - alpha] - 2025-12-17
 - Found way to use tiny editor free version
         
 [V0.03 - alpha] - 2025-12-16
 - Checkpoint end of day
-- Material Ticket Creation - In Progress        
+- Material Ticket Creation - In Progress
 
 [V0.02 - alpha] - 2025-12-16
 - More refined and understandable auth code
