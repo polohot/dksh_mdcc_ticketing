@@ -1,0 +1,6 @@
+[theme]
+base="light"
+primaryColor="#556B2F"  # Muted Olive instead of bright blue/red
+backgroundColor="#EFEDE8" # Warm parchment/cream background
+secondaryBackgroundColor="#E5E1D8" # Slightly darker cream for sidebars
+textColor="#3D3D3D" # Soft charcoal text
