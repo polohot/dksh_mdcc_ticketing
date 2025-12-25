@@ -53,3 +53,53 @@ def applyCompactStyle():
     </style>
     """
     st.markdown(style, unsafe_allow_html=True)
+
+
+
+def renderNavigationButtons():
+    # CSS: Removed 'margin-top' because st.columns handles the alignment now
+    htmlContent = """
+    <style>
+        .button-container {
+            display: flex;
+            flex-direction: row;
+            gap: 10px;
+            /* No margin-top needed anymore */
+        }
+        
+        .nav-button {
+            text-decoration: none !important;
+            color: #31333F !important;
+            background-color: #f0f2f6;
+            padding: 8px 16px;
+            border-radius: 8px;
+            border: 1px solid #d6d6d8;
+            font-family: sans-serif;
+            font-size: 16px;
+            font-weight: 400;
+            line-height: 1.5;
+            transition: all 0.2s ease;
+            white-space: nowrap;
+        }
+
+        .nav-button:hover {
+            border-color: #ff4b4b !important;
+            color: #ff4b4b !important;
+            text-decoration: none !important;
+            background-color: #ffffff;
+        }
+
+        .nav-button:active {
+            background-color: #e6e9ef;
+            transform: translateY(1px);
+        }
+    </style>
+
+    <div class="button-container">
+        <a href="(1)_All_Tickets" class="nav-button" target="_self">All Tickets</a>
+        <a href="(2)_Create_Ticket" class="nav-button" target="_self">Create Ticket</a>
+        <a href="(3)_View_Ticket" class="nav-button" target="_self">View Ticket</a>
+    </div>
+    """
+
+    st.markdown(htmlContent, unsafe_allow_html=True)

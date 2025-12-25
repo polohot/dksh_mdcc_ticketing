@@ -287,7 +287,7 @@ def ct_dialogConfirm():
                 if i % 10 == 0 or i == total_files - 1:
                     percent_complete = int((i + 1) / total_files * 100)
                     stBar.progress(percent_complete, text=f"Syncing: {percent_complete}%")
-                    
+
         # KEEP ONLY THE LATEST 10 CSV - DELETE ALL OTHER CSV
         lscsv = os.listdir(f"ticketDatabase/ticketIndex/")
         lscsv = [x for x in lscsv if x.endswith('.csv')]
@@ -336,8 +336,13 @@ def ct_dialogConfirm():
 # MAIN BODY #
 #############
 
-st.title("(2) Create Ticket")
-st.markdown("---")
+titlec1, titlec2 = st.columns([1,2], vertical_alignment="center")
+with titlec1:
+    st.title("(2) Create Ticket")
+with titlec2:
+    renderNavigationButtons()
+
+st.markdown("<br>", unsafe_allow_html=True)
 
 if not auth_logged_in:
     st.info("Please login using the left tab (sidebar).")

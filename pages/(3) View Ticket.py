@@ -69,6 +69,7 @@ def saveWhenHeaderChanges(currentTicket, newTicketDict):
     # LOG DIFF IN THREAD
     st.session_state["vt_diffHeader"] = getDictDiff(currentTicket, newTicketDict)
     st.session_state["vt_diffHeader"].pop('LAST_MODIFIED_DTTM', None)
+    st.session_state["vt_diffHeader"].pop('LAST_MODIFIED_BY', None)
     # ONLY SAVE CHANGED IF THERE IS CHANGE IN THE HEADER
     if st.session_state["vt_diffHeader"] != {}:       
 
@@ -358,7 +359,11 @@ def renderTicketHeader():
 # MAIN BODY #
 #############
 
-st.title("(3) View Ticket")
+titlec1, titlec2 = st.columns([1,2], vertical_alignment="center")
+with titlec1:
+    st.title("(3) View Ticket")
+with titlec2:
+    renderNavigationButtons()
 
 if not auth_logged_in:
     st.info("Please login using the left tab (sidebar).")

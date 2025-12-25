@@ -58,6 +58,7 @@ def at_getTicketsDataFrame():
                             'TICKET_TYPE':'Type',
                             'SAP_CODE':'SAPCode',
                             'SAP_NAME':'SAPName',
+                            'REQUEST_INQUIRY_DATE':'RequestInquiryDate',
                             'REQUESTED_BY':'RequestedBy',
                             'COUNTRY':'Country',
                             'BL_CD':'BLCD',
@@ -75,7 +76,9 @@ def at_getTicketsDataFrame():
                             'TICKET_CLOSED_BY':'TicketClosedBy',
                             'TICKET_CLOSED_CODE':'TicketClosedCode',
                             'TICKET_CLOSED_NOTE':'TicketClosedNote',
-                            'TICKET_CLOSED_DTTM':'TicketClosedDttm'                            
+                            'TICKET_CLOSED_DTTM':'TicketClosedDttm',
+                            'LAST_MODIFIED_BY':'LastModifiedBy',
+                            'LAST_MODIFIED_DTTM':'LastModifiedDttm',                      
                             })
     return df
 
@@ -83,8 +86,11 @@ def at_getTicketsDataFrame():
 # MAIN BODY #
 #############
 
-st.title("(1) All Tickets")
-st.markdown("---")
+titlec1, titlec2 = st.columns([1,2], vertical_alignment="center")
+with titlec1:
+    st.title("(1) All Tickets")
+with titlec2:
+    renderNavigationButtons()
 
 if not auth_logged_in:
     st.info("Please login using the left tab (sidebar).")
@@ -94,33 +100,51 @@ else:
 
     if not df_tickets.empty:
 
-        # ROW 1: TICKET TYPES
-        r1_col1, r1_col2, r1_col3, r1_col4 = st.columns(4)
-        with r1_col1:
+        # FILTER SET 1: TICKET TYPES
+        c1, c2, c3, c4 = st.columns(4)
+        with c1:
+            # FILTER SET 1: TICKET TYPES
             st.write("Ticket Types")
-        with r1_col2:
-            filter_material = st.checkbox("Material", value=True)
-        with r1_col3:
-            filter_customer = st.checkbox("Customer", value=True)
-        with r1_col4:
-            filter_vendor = st.checkbox("Vendor", value=True)        
-        # ROW 2: FILTER NAME
-        r2_col1, r2_col2, r2_col3, r2_col4 = st.columns(4)
-        with r2_col1:
-            st.write("Filter Name")
-        with r2_col2:
-            filter_created_by_me = st.checkbox("Created by Me", value=False) 
-        
+            at_filterMaterial = st.checkbox("Material", value=True, key="at_filterMaterial")
+            at_filterCustomer = st.checkbox("Customer", value=True, key="at_filterCustomer")
+            at_filterVendor = st.checkbox("Vendor", value=True, key="at_filterVendor")
+        with c2:
+            # FILTER SET 2: CNTY + BL
+            lsCountry = ['--ALL--'] + [x for x in df_tickets['Country'].sort_values().unique() if pd.notna(x)] + ['--NONE--']
+            at_filterCountry = st.selectbox("Country", options=lsCountry, index=0, key="at_filterCountry")
+        with c3:
+            # FILTER SET3: STATUS + STAGE
+            lsStatus = ['--ALL--'] + [x for x in df_tickets['Status'].sort_values().unique() if pd.notna(x)]
+            at_filterStatus = st.selectbox("Status", options=lsStatus, index=0, key="at_filterStatus")
+            lsStage = ['--ALL--'] + [x for x in df_tickets['Stage'].sort_values().unique() if pd.notna(x)]
+            at_filterStage = st.selectbox("Stage", options=lsStage, index=0, key="at_filterStage")
+        with c4:
+            # FILTER SET 4: FILTER NAME
+            lsCreator = ['--ALL--'] + [x for x in df_tickets['CreatedBy'].sort_values().unique() if pd.notna(x)]
+            at_filterCreatedBy = st.selectbox("CreatedBy", options=lsCreator, index=0, key="at_filterCreatedBy")
+
         # APPLY LOGIC     
         df_display = df_tickets.copy()
-        # ROW1: TICKET TYPES
-        selected_types1 = []
-        if filter_material: selected_types1.append("Material")
-        if filter_customer: selected_types1.append("Customer")
-        if filter_vendor: selected_types1.append("Vendor")
-        df_display = df_tickets[df_tickets["Type"].isin(selected_types1)]
-        # ROW2: CREATED BY
-        if filter_created_by_me: df_display = df_display[df_display["CreatedBy"] == st.session_state.auth_user]
+        # FILTER SET 1: TICKET TYPES
+        at_selectFilterSet1 = []
+        if at_filterMaterial: at_selectFilterSet1.append("Material")
+        if at_filterCustomer: at_selectFilterSet1.append("Customer")
+        if at_filterVendor: at_selectFilterSet1.append("Vendor")
+        df_display = df_tickets[df_tickets["Type"].isin(at_selectFilterSet1)]
+        # FILTER SET 2: CNTY + BL
+        if at_filterCountry == '--ALL--': pass
+        elif at_filterCountry == '--NONE--': df_display = df_tickets[df_tickets["Country"].isnull()]
+        else: df_display = df_tickets[df_tickets["Country"] == at_filterCountry]
+        # FILTER SET3: STATUS + STAGE
+        if at_filterStatus == '--ALL--': pass
+        elif at_filterStatus == '--NONE--': df_display = df_tickets[df_tickets["Status"].isnull()]
+        else: df_display = df_tickets[df_tickets["Status"] == at_filterStatus]
+        if at_filterStage == '--ALL--': pass
+        elif at_filterStage == '--NONE--': df_display = df_tickets[df_tickets["Stage"].isnull()]
+        else: df_display = df_tickets[df_tickets["Stage"] == at_filterStage]
+        # FILTER SET 4: FILTER NAME
+        if at_filterCreatedBy == '--ALL--': pass   
+        else: df_display = df_tickets[df_tickets["CreatedBy"] == at_filterCreatedBy]
 
         # --- SHOW DATAFRAME ---
         st.markdown("---")
