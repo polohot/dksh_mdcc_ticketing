@@ -3,23 +3,28 @@ from fastapi.responses import FileResponse
 import os
 import glob
 
-app = FastAPI()
+# distinct_path prefix is crucial so the docs work at /api/docs
+app = FastAPI(root_path="/api") 
 
 def getLatestCsvFile():
-    # Define the directory path
-    folderPath = "ticketDatabase/ticketIndex"    
-    # Get list of all csv files
-    listOfTheFiles = glob.glob(os.path.join(folderPath, "*.csv"))    
+    folderPath = "ticketDatabase/ticketIndex"
+    listOfTheFiles = glob.glob(os.path.join(folderPath, "*.csv"))
+    
     if not listOfTheFiles:
-        return None    
-    # Find the latest file based on filename (since your filenames are timestamps, max() works perfectly)
-    latestFile = max(listOfTheFiles, key=os.path.getctime)    
+        return None
+    
+    latestFile = max(listOfTheFiles, key=os.path.getctime)
     return latestFile
 
 @app.get("/latest-ticket")
 def readLatestTicket():
-    latestFilePath = getLatestCsvFile()    
+    latestFilePath = getLatestCsvFile()
+    
     if latestFilePath is None:
-        raise HTTPException(status_code=404, detail="No CSV files found")        
-    # Returns the file directly so you can download or view it
+        raise HTTPException(status_code=404, detail="No CSV files found")
+        
     return FileResponse(latestFilePath)
+
+@app.get("/")
+def readRoot():
+    return {"message": "API is running. Go to /api/docs for documentation."}

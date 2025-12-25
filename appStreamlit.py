@@ -71,6 +71,9 @@ else:
 st.caption("Changelog")
 
 st.code("""        
+[V0.13-alpha] - 2025-12-25
+- Fix routing to allow access both streamlit and api from one url 
+        
 [V0.12-alpha] - 2025-12-25
 - Add API testing script
                
