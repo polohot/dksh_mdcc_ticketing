@@ -71,6 +71,9 @@ else:
 st.caption("Changelog")
 
 st.code("""        
+[V0.12-alpha] - 2025-12-25
+- Add API testing script
+               
 [V0.11-alpha] - 2025-12-25
 - Checkpoint
         

@@ -2,3 +2,5 @@ dotenv==0.9.9
 streamlit==1.52.1
 streamlit-cookies-manager==0.2.0
 streamlit-dimensions==0.0.1
+fastapi==0.127.0
+uvicorn==0.40.0
