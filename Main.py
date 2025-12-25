@@ -71,6 +71,10 @@ else:
 st.caption("Changelog")
 
 st.code("""
+[V0.10-alpha] - 2025-12-25
+- Add function in View Ticket to log changes of Header Info Change
+- Add function in View Ticket to Not allow more changes if ticket is closed
+        
 [V0.09-alpha] - 2025-12-24
 - Check point
 

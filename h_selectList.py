@@ -24,3 +24,20 @@ def get_lsStatus():
 def get_lsRequestedBy():
     lsRequestedBy = ['','polohot@gmail.com','aaa@bbb.com','cccc@dddd.com']
     return lsRequestedBy
+
+def get_lsStage(currStage):
+    if currStage == '0 SaveDraft':
+        lsStage = ['1 Requesting Documents', '2 Submitted', '99C Cancelled']
+    elif currStage == '1 Requesting Documents':
+        lsStage = ['2 Submitted', '99C Cancelled']
+    elif currStage == '2 Submitted':
+        lsStage = ['3A Approved', '3B Rejected', '99C Cancelled']
+    elif currStage == '3A Approved':
+        lsStage = ['99A Sap Created', '99C Cancelled']
+    elif currStage == '3B Rejected':
+        lsStage = ['4 Resubmitting', '99C Cancelled']
+    elif currStage == '4 Resubmitting':
+        lsStage = ['1 Requesting Documents', '99C Cancelled']
+    else: # SHOW ALL STAGE
+        lsStage = ['0 SaveDraft', '1 Requesting Documents', '2 Submitted', '3A Approved', '3B Rejected', '4 Resubmitting', '99A Sap Created', '99C Cancelled']
+    return lsStage

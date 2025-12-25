@@ -39,26 +39,19 @@ if "vt_selTicketNumber" not in st.session_state:
 # CSS SETTINGS
 applyCompactStyle()
 
-# CONSTANTS
-# lsCountry = get_lsCountry()
-# lsBL = get_lsBL()
-# lsServiceType = get_lsServiceType()
-# lsStatus = get_lsStatus()
-# lsRequestedBy = get_lsRequestedBy()
-
 ##################
 # HELPER GENERIC #
 ##################
 
 def ct_getTicketData():
-    from datetime import datetime, timezone
     ct_ticketData = {
         "TICKET_NUMBER": None,
-        "TICKET_CREATE_DTTM": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S"),
+        "TICKET_CREATE_DTTM": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d %H:%M:%S"),
         "TICKET_CREATED_BY": auth_user,
         "TICKET_TYPE": st.session_state.get("dialog_TICKET_TYPE"),
-        "SAP_CODE": None,
+        "SAP_CODE": st.session_state['dialog_SAP_CODE'] ,
         "SAP_NAME": st.session_state.get("dialog_SAP_NAME"),
+        "REQUEST_INQUIRY_DATE": st.session_state['dialog_REQUEST_INQUIRY_DATE'].strftime("%Y-%m-%d"),
         "REQUESTED_BY": st.session_state.get("dialog_REQUESTED_BY"),
         "COUNTRY": st.session_state.get("dialog_COUNTRY"),
         "BL_CD": st.session_state.get("dialog_BL_CD"),
@@ -78,7 +71,7 @@ def ct_getTicketData():
         "TICKET_CLOSED_NOTE": None,
         "TICKET_CLOSED_DTTM": None,
         "LAST_MODIFIED_BY": st.session_state.auth_user,
-        "LAST_MODIFIED_DTTM": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S"),
+        "LAST_MODIFIED_DTTM": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d %H:%M:%S"),
         }
     st.session_state.ct_ticketData = ct_ticketData
 
@@ -130,6 +123,8 @@ def ct_saveJsonl():
 ########################
 # HELPER - TICKET TYPE #
 ########################
+
+
 @st.dialog('Create New Ticket', width='large', dismissible=False)
 def ct_dialogAddInfo():
     # CONSTANTS
@@ -141,112 +136,122 @@ def ct_dialogAddInfo():
     with st.form(f"Create Ticket", clear_on_submit=False):
         st.subheader(f"{st.session_state.ct_ticketType} Ticket")
         st.markdown("<br>", unsafe_allow_html=True)   
+        # COL SETUP
+        col1form, col2form = st.columns(2)
+        st.markdown('<hr style="margin: 10px 0px; border: 1px solid #ddd;">', unsafe_allow_html=True)  
+        col1form2, col2form2 = st.columns(2)
         # FORM - MATERIAL
         if st.session_state.ct_ticketType == 'Material':
-            lsServiceType = get_lsServiceType('Material')
-            col1form, col2form = st.columns(2)
+            lsServiceType = get_lsServiceType('Material')            
             with col1form:
-                fill_SAP_NAME = st.text_input("SAP Name *", key="dialog_SAP_NAME")
-                fill_COUNTRY = st.selectbox("Country *", options=lsCountry, index=0, key="dialog_COUNTRY")
+                fill_SERVICE_TYPE = st.selectbox("**Service Type** *", options=lsServiceType, index=0, key="dialog_SERVICE_TYPE") 
+                fill_SAP_NAME = st.text_input("**SAP Name** *", key="dialog_SAP_NAME")
+                fill_SAP_CODE = st.text_input("SAP Code (Optional)", key="dialog_SAP_CODE")
+                fill_COUNTRY = st.selectbox("**Country** *", options=lsCountry, index=0, key="dialog_COUNTRY")
+                fill_BL_CD = st.selectbox("Business Line (Optional)", options=lsBL, index=0, key="dialog_BL_CD")
+            with col2form:
+                fill_REQUESTED_BY = st.selectbox("**Requested By** *", options=lsRequestedBy, index=0, key="dialog_REQUESTED_BY")
+                fill_REQUEST_INQUIRY_DATE = st.date_input("**Request Inquiry Date** *", value=datetime.date.today(), format="YYYY-MM-DD", key="dialog_REQUEST_INQUIRY_DATE")
+                fill_CALLBACK_DATE = st.date_input("Callback Date (Optional)", value=None, format="YYYY-MM-DD", key="dialog_CALLBACK_DATE")
+                fill_CALLBACK_TIME = st.time_input("Callback Time (Optional)", key="dialog_CALLBACK_TIME", value=None)                      
+            with col1form2:
                 fill_TICKET_TYPE = st.text_input("Ticket Type", value="Material", disabled=True, key="dialog_TICKET_TYPE")  
                 fill_TICKET_CREATED_BY = st.text_input("Ticket Created By", value=auth_user, disabled=True, key="dialog_TICKET_CREATED_BY")  
                 fill_STATUS = st.selectbox("Status", options=lsStatus, index=0, disabled=True, key="dialog_STATUS")
-            with col2form:
-                fill_REQUESTED_BY = st.selectbox("Requested By *", options=lsRequestedBy, index=0, key="dialog_REQUESTED_BY")
-                fill_BL_CD = st.selectbox("Business Line (Optional)", options=lsBL, index=0, key="dialog_BL_CD")           
-                fill_SERVICE_TYPE = st.selectbox("Service Type *", options=lsServiceType, index=0, key="dialog_SERVICE_TYPE")   
-                fill_CALLBACK_DATE = st.date_input("Callback Date (Optional)", key="dialog_CALLBACK_DATE", value=None)
-                fill_CALLBACK_TIME = st.time_input("Callback Time (Optional)", key="dialog_CALLBACK_TIME", value=None)
         # FORM - CUSTOMER
         elif st.session_state.ct_ticketType == 'Customer':
             lsServiceType = get_lsServiceType('Customer')
-            col1form, col2form = st.columns(2)
             with col1form:
-                fill_SAP_NAME = st.text_input("SAP Name *", key="dialog_SAP_NAME")
-                fill_COUNTRY = st.selectbox("Country *", options=lsCountry, index=0, key="dialog_COUNTRY")
+                fill_SERVICE_TYPE = st.selectbox("**Service Type** *", options=lsServiceType, index=0, key="dialog_SERVICE_TYPE") 
+                fill_SAP_NAME = st.text_input("**SAP Name** *", key="dialog_SAP_NAME")
+                fill_SAP_CODE = st.text_input("SAP Code (Optional)", key="dialog_SAP_CODE")
+                fill_COUNTRY = st.selectbox("**Country** *", options=lsCountry, index=0, key="dialog_COUNTRY")
+                fill_BL_CD = st.selectbox("Business Line (Optional)", options=lsBL, index=0, key="dialog_BL_CD")
+            with col2form:                
+                fill_REQUESTED_BY = st.selectbox("**Requested By** *", options=lsRequestedBy, index=0, key="dialog_REQUESTED_BY")
+                fill_REQUEST_INQUIRY_DATE = st.date_input("**Request Inquiry Date** *", value=datetime.date.today(), format="YYYY-MM-DD", key="dialog_REQUEST_INQUIRY_DATE")
+                fill_CALLBACK_DATE = st.date_input("Callback Date (Optional)", value=None, format="YYYY-MM-DD", key="dialog_CALLBACK_DATE")
+                fill_CALLBACK_TIME = st.time_input("Callback Time (Optional)", key="dialog_CALLBACK_TIME", value=None)
+            with col1form2:
                 fill_TICKET_TYPE = st.text_input("Ticket Type", value="Customer", disabled=True, key="dialog_TICKET_TYPE")  
                 fill_TICKET_CREATED_BY = st.text_input("Ticket Created By", value=auth_user, disabled=True, key="dialog_TICKET_CREATED_BY")  
-                fill_STATUS = st.selectbox("Status", options=lsStatus, index=0, disabled=True, key="dialog_STATUS")
-            with col2form:
-                fill_REQUESTED_BY = st.selectbox("Requested By *", options=lsRequestedBy, index=0, key="dialog_REQUESTED_BY")
-                fill_BL_CD = st.selectbox("Business Line (Optional)", options=lsBL, index=0, key="dialog_BL_CD")           
-                fill_SERVICE_TYPE = st.selectbox("Service Type *", options=lsServiceType, index=0, key="dialog_SERVICE_TYPE")   
-                fill_CALLBACK_DATE = st.date_input("Callback Date (Optional)", key="dialog_CALLBACK_DATE", value=None)
-                fill_CALLBACK_TIME = st.time_input("Callback Time (Optional)", key="dialog_CALLBACK_TIME", value=None)
+                fill_STATUS = st.selectbox("Status", options=lsStatus, index=0, disabled=True, key="dialog_STATUS")            
         # FORM - VENDOR
         elif st.session_state.ct_ticketType == 'Vendor':
             lsServiceType = get_lsServiceType('Vendor')
-            col1form, col2form = st.columns(2)
             with col1form:
-                fill_SAP_NAME = st.text_input("SAP Name *", key="dialog_SAP_NAME")
-                fill_COUNTRY = st.selectbox("Country *", options=lsCountry, index=0, key="dialog_COUNTRY")
+                fill_SERVICE_TYPE = st.selectbox("**Service Type** *", options=lsServiceType, index=0, key="dialog_SERVICE_TYPE") 
+                fill_SAP_NAME = st.text_input("**SAP Name** *", key="dialog_SAP_NAME")
+                fill_SAP_CODE = st.text_input("SAP Code (Optional)", key="dialog_SAP_CODE")
+                fill_COUNTRY = st.selectbox("**Country** *", options=lsCountry, index=0, key="dialog_COUNTRY")
+                fill_BL_CD = st.selectbox("Business Line (Optional)", options=lsBL, index=0, key="dialog_BL_CD")
+            with col2form:                
+                fill_REQUESTED_BY = st.selectbox("**Requested By** *", options=lsRequestedBy, index=0, key="dialog_REQUESTED_BY")
+                fill_REQUEST_INQUIRY_DATE = st.date_input("**Request Inquiry Date** *", value=datetime.date.today(), format="YYYY-MM-DD", key="dialog_REQUEST_INQUIRY_DATE")
+                fill_CALLBACK_DATE = st.date_input("Callback Date (Optional)", value=None, format="YYYY-MM-DD", key="dialog_CALLBACK_DATE")
+                fill_CALLBACK_TIME = st.time_input("Callback Time (Optional)", key="dialog_CALLBACK_TIME", value=None)
+            with col1form2:
                 fill_TICKET_TYPE = st.text_input("Ticket Type", value="Vendor", disabled=True, key="dialog_TICKET_TYPE")  
                 fill_TICKET_CREATED_BY = st.text_input("Ticket Created By", value=auth_user, disabled=True, key="dialog_TICKET_CREATED_BY")  
-                fill_STATUS = st.selectbox("Status", options=lsStatus, index=0, disabled=True, key="dialog_STATUS")
-            with col2form:
-                fill_REQUESTED_BY = st.selectbox("Requested By *", options=lsRequestedBy, index=0, key="dialog_REQUESTED_BY")
-                fill_BL_CD = st.selectbox("Business Line (Optional)", options=lsBL, index=0, key="dialog_BL_CD")           
-                fill_SERVICE_TYPE = st.selectbox("Service Type *", options=lsServiceType, index=0, key="dialog_SERVICE_TYPE")   
-                fill_CALLBACK_DATE = st.date_input("Callback Date (Optional)", key="dialog_CALLBACK_DATE", value=None)
-                fill_CALLBACK_TIME = st.time_input("Callback Time (Optional)", key="dialog_CALLBACK_TIME", value=None)
-
-        # BUTTONS
-        st.markdown("<br>", unsafe_allow_html=True)   
-        but_save_draft = st.form_submit_button("Save Draft") 
-        but_request_doc = st.form_submit_button("Request Document")
-        but_submit = st.form_submit_button("Submit Ticket")
-        st.markdown("<br>", unsafe_allow_html=True)   
-        # BUTTON - DRAFT
-        if but_save_draft:
-            chxerr = 0
-            if fill_SAP_NAME == "":
-                chxerr += 1
-                st.error("Please enter a value for SAP Name. It cannot be empty.")
-            if chxerr == 0:
-                ct_getTicketData()
-                st.session_state.ct_ticketData['STAGE'] = "0 SaveDraft"
-                ct_saveJsonl()     
-                st.session_state.ct_showProgressBar = True
-                st.session_state.ct_activeDialog = 2   
-                st.rerun()           
-        # BUTTON - REQUEST DOC
-        if but_request_doc:
-            chxerr = 0
-            if fill_SAP_NAME == "":
-                chxerr += 1
-                st.error("Please enter a value for SAP Name. It cannot be empty.")
-            if fill_REQUESTED_BY == "":
-                chxerr += 1
-                st.error("Please enter a value for Requested By. It cannot be empty.")
-            if fill_COUNTRY == "":
-                chxerr += 1
-                st.error("Please select a value for Country. It cannot be empty.")
-            if chxerr == 0:
-                ct_getTicketData()
-                st.session_state.ct_ticketData['STAGE'] = "1 RequestingDocuments"
-                ct_saveJsonl()    
-                st.session_state.ct_showProgressBar = True
-                st.session_state.ct_activeDialog = 2   
-                st.rerun()            
-        # BUTTON - SUBMIT 
-        if but_submit:
-            chxerr = 0
-            if fill_SAP_NAME == "":
-                chxerr += 1
-                st.error("Please enter a value for SAP Name. It cannot be empty.")
-            if fill_REQUESTED_BY == "":
-                chxerr += 1
-                st.error("Please enter a value for Requested By. It cannot be empty.")
-            if fill_COUNTRY == "":
-                chxerr += 1
-                st.error("Please select a value for Country. It cannot be empty.")
-            if chxerr == 0:
-                ct_getTicketData()
-                st.session_state.ct_ticketData['STAGE'] = "2 Submitted"
-                ct_saveJsonl()      
-                st.session_state.ct_showProgressBar = True
-                st.session_state.ct_activeDialog = 2          
-                st.rerun()
+                fill_STATUS = st.selectbox("Status", options=lsStatus, index=0, disabled=True, key="dialog_STATUS")                      
+        with col2form2:
+            # BUTTONS
+            st.markdown("<br>", unsafe_allow_html=True)   
+            but_save_draft = st.form_submit_button("Save Draft") 
+            but_request_doc = st.form_submit_button("Request Document")
+            but_submit = st.form_submit_button("Submit Ticket")
+            st.markdown("<br>", unsafe_allow_html=True)   
+            # BUTTON - DRAFT
+            if but_save_draft:
+                chxerr = 0
+                if fill_SAP_NAME == "":
+                    chxerr += 1
+                    st.error("Please enter a value for SAP Name. It cannot be empty.")
+                if chxerr == 0:
+                    ct_getTicketData()
+                    st.session_state.ct_ticketData['STAGE'] = "0 SaveDraft"
+                    ct_saveJsonl()     
+                    st.session_state.ct_showProgressBar = True
+                    st.session_state.ct_activeDialog = 2   
+                    st.rerun()           
+            # BUTTON - REQUEST DOC
+            if but_request_doc:
+                chxerr = 0
+                if fill_SAP_NAME == "":
+                    chxerr += 1
+                    st.error("Please enter a value for SAP Name. It cannot be empty.")
+                if fill_REQUESTED_BY == "":
+                    chxerr += 1
+                    st.error("Please enter a value for Requested By. It cannot be empty.")
+                if fill_COUNTRY == "":
+                    chxerr += 1
+                    st.error("Please select a value for Country. It cannot be empty.")
+                if chxerr == 0:
+                    ct_getTicketData()
+                    st.session_state.ct_ticketData['STAGE'] = "1 Requesting Documents"
+                    ct_saveJsonl()    
+                    st.session_state.ct_showProgressBar = True
+                    st.session_state.ct_activeDialog = 2   
+                    st.rerun()            
+            # BUTTON - SUBMIT 
+            if but_submit:
+                chxerr = 0
+                if fill_SAP_NAME == "":
+                    chxerr += 1
+                    st.error("Please enter a value for SAP Name. It cannot be empty.")
+                if fill_REQUESTED_BY == "":
+                    chxerr += 1
+                    st.error("Please enter a value for Requested By. It cannot be empty.")
+                if fill_COUNTRY == "":
+                    chxerr += 1
+                    st.error("Please select a value for Country. It cannot be empty.")
+                if chxerr == 0:
+                    ct_getTicketData()
+                    st.session_state.ct_ticketData['STAGE'] = "2 Submitted"
+                    ct_saveJsonl()      
+                    st.session_state.ct_showProgressBar = True
+                    st.session_state.ct_activeDialog = 2          
+                    st.rerun()
 
 
 @st.dialog('Syncing Ticket', dismissible=False)
@@ -282,6 +287,15 @@ def ct_dialogConfirm():
                 if i % 10 == 0 or i == total_files - 1:
                     percent_complete = int((i + 1) / total_files * 100)
                     stBar.progress(percent_complete, text=f"Syncing: {percent_complete}%")
+                    
+        # KEEP ONLY THE LATEST 10 CSV - DELETE ALL OTHER CSV
+        lscsv = os.listdir(f"ticketDatabase/ticketIndex/")
+        lscsv = [x for x in lscsv if x.endswith('.csv')]
+        lscsv.sort(reverse=True)
+        if len(lscsv) > 10:
+            for csv in lscsv[10:]:
+                os.remove(f"ticketDatabase/ticketIndex/{csv}")
+
         stBar.empty()
         st.session_state.ct_showProgressBar = False
         df = pd.DataFrame(rowList)
