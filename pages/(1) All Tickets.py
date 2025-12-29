@@ -61,7 +61,7 @@ def at_getTicketsDataFrame():
                             'REQUEST_INQUIRY_DATE':'RequestInquiryDate',
                             'REQUESTED_BY':'RequestedBy',
                             'COUNTRY':'Country',
-                            'BL_CD':'BLCD',
+                            'BL_CD':'Business Line',
                             'SERVICE_TYPE':'ServiceType',
                             'SUBJECT':'Subject',
                             'CALLBACK_DATE':'CallbackDate',
@@ -70,6 +70,7 @@ def at_getTicketsDataFrame():
                             'REQUEST_MISSING_DOC_DATE':'RequestMissingDocDate',
                             'APPROVING_STATUS':'ApprovingStatus',
                             'APPROVING_DATE':'ApprovingDate',
+                            "REJECTION_DATE": "RejectionDate",
                             'SAP_CREATED_DATE':'SAPCreatedDate',
                             'STAGE':'Stage',
                             'STATUS':'Status',
@@ -172,8 +173,8 @@ else:
                 # SAVE TO SESSION STATE
                 st.session_state["vt_selTicketType"] = selected_ticket["Type"]
                 st.session_state["vt_selTicketNumber"] = selected_ticket["TicketNumber"]
-                st.session_state["vt_selTicketHeaderPath"] = f"ticketDatabase/ticketHeader/{selected_ticket['Type']}/{selected_ticket['TicketNumber']}.jsonl"
-                st.session_state["vt_selTicketThreadPath"] = f"ticketDatabase/ticketThread/{selected_ticket['Type']}/{selected_ticket['TicketNumber']}.jsonl"
+                st.session_state["vt_selTicketHeaderPath"] = f"ticketDatabase/ticketHeader/{selected_ticket['TicketNumber']}.jsonl"
+                st.session_state["vt_selTicketThreadPath"] = f"ticketDatabase/ticketThread/{selected_ticket['TicketNumber']}.jsonl"
                 st.session_state["vt_ticketHeader"] = []
                 st.session_state["vt_ticketThread"] = []
                 st.session_state["vt_editorKey"] = 0

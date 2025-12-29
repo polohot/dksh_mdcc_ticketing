@@ -48,71 +48,71 @@ def ct_getTicketData():
         "TICKET_NUMBER": None,
         "TICKET_CREATE_DTTM": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d %H:%M:%S"),
         "TICKET_CREATED_BY": auth_user,
-        "TICKET_TYPE": st.session_state.get("dialog_TICKET_TYPE"),
-        "SAP_CODE": st.session_state['dialog_SAP_CODE'] ,
-        "SAP_NAME": st.session_state.get("dialog_SAP_NAME"),
+        "TICKET_TYPE": st.session_state["dialog_TICKET_TYPE"],
+        "SAP_CODE": st.session_state["dialog_SAP_CODE"] ,
+        "SAP_NAME": st.session_state["dialog_SAP_NAME"],
+        "SAP_CREATED_DATE": None,
         "REQUEST_INQUIRY_DATE": st.session_state['dialog_REQUEST_INQUIRY_DATE'].strftime("%Y-%m-%d"),
-        "REQUESTED_BY": st.session_state.get("dialog_REQUESTED_BY"),
-        "COUNTRY": st.session_state.get("dialog_COUNTRY"),
-        "BL_CD": st.session_state.get("dialog_BL_CD"),
-        "SERVICE_TYPE": st.session_state.get("dialog_SERVICE_TYPE"),
+        "REQUESTED_BY": st.session_state["dialog_REQUESTED_BY"],
+        "COUNTRY": st.session_state["dialog_COUNTRY"],
+        "BL_CD": st.session_state["dialog_BL_CD"],
+        "SERVICE_TYPE": st.session_state["dialog_SERVICE_TYPE"],
         "SUBJECT": None,
-        "CALLBACK_DATE": st.session_state.get("dialog_CALLBACK_DATE"),
-        "CALLBACK_TIME": st.session_state.get("dialog_CALLBACK_TIME"),
+        "CALLBACK_DATE": st.session_state["dialog_CALLBACK_DATE"],
+        "CALLBACK_TIME": st.session_state["dialog_CALLBACK_TIME"],
         "REFERENCE_TICKET_NUMBER": None,
         "REQUEST_MISSING_DOC_DATE": None,
         "APPROVING_STATUS": None,
         "APPROVING_DATE": None,
+        "REJECTION_DATE": None,
         "SAP_CREATED_DATE": None,  
         "STAGE": None,
-        "STATUS": st.session_state.get("dialog_STATUS"),
+        "STATUS": st.session_state["dialog_STATUS"],
         "TICKET_CLOSED_BY": None,
         "TICKET_CLOSED_CODE": None,
         "TICKET_CLOSED_NOTE": None,
         "TICKET_CLOSED_DTTM": None,
-        "LAST_MODIFIED_BY": st.session_state.auth_user,
+        "LAST_MODIFIED_BY": st.session_state["auth_user"],
         "LAST_MODIFIED_DTTM": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d %H:%M:%S"),
         }
     st.session_state.ct_ticketData = ct_ticketData
 
-def ct_getTicketNaming(ct_folderPath, ct_prefix):
-    from datetime import datetime
+def ct_getTicketNaming(ct_folderPath, ct_suffix):
     # GET CURRENT YEAR
-    current_year = str(datetime.now().year)
+    current_year = str(datetime.datetime.now().year)
     # GET ALL FILES OF YEAR
     with os.scandir(ct_folderPath) as entries:
         filenames = [entry.name for entry in entries if entry.is_file()]
     filenames = [x for x in filenames if x.endswith('.jsonl')]
-    filenames = [x for x in filenames if x.split('---')[1] == current_year]
+    filenames = [x for x in filenames if x.split('-')[0] == current_year]
     # CASE1: FIRST FILE OF THE YEAR
     if len(filenames)==0:
-        ct_ticketNumber = f"{ct_prefix}---{current_year}---000001"
-        ct_ticketPath = f"{ct_folderPath}{ct_prefix}---{current_year}---000001.jsonl"
+        ct_ticketNumber = f"{current_year}-000001-{ct_suffix}"
+        ct_ticketPath = f"{ct_folderPath}{current_year}-000001-{ct_suffix}.jsonl"
     # CASE2: OTHER
     else:
-        nnnnnn1 = [x.split('---')[2].split('.')[0] for x in filenames]
+        pass
+        nnnnnn1 = [x.split('-')[1] for x in filenames]
         nnnnnn1 = [int(x) for x in nnnnnn1]
         nnnnnn2 = max(nnnnnn1) + 1
         nnnnnn2 = str(nnnnnn2).zfill(6)
-        ct_ticketNumber = f"{ct_prefix}---{current_year}---{nnnnnn2}"
-        ct_ticketPath = f"{ct_folderPath}{ct_prefix}---{current_year}---{nnnnnn2}.jsonl"
+        ct_ticketNumber = f"{current_year}-{nnnnnn2}-{ct_suffix}"
+        ct_ticketPath = f"{ct_folderPath}{current_year}-{nnnnnn2}-{ct_suffix}.jsonl"
     return ct_ticketNumber, ct_ticketPath
 
 def ct_saveJsonl():
     # DETERMINE TICKET TYPE
-    if st.session_state.ct_ticketType == "Material":
-        ct_folderPath = 'ticketDatabase/ticketHeader/Material/'
-        ct_prefix = "MATE"
-    elif st.session_state.ct_ticketType == "Customer":
-        ct_folderPath = 'ticketDatabase/ticketHeader/Customer/'
-        ct_prefix = "CUST"
-    elif st.session_state.ct_ticketType == "Vendor":
-        ct_folderPath = 'ticketDatabase/ticketHeader/Vendor/'
-        ct_prefix = "VEND"    
+    ct_folderPath = "ticketDatabase/ticketHeader/"
+    if st.session_state.ct_ticketType == "Material - Creation":
+        ct_suffix = "MATR"
+    elif st.session_state.ct_ticketType == "Customer - Creation":
+        ct_suffix = "CUST"
+    elif st.session_state.ct_ticketType == "Vendor - Creation":
+        ct_suffix = "VEND"    
     # ENSURE DIRECTORY EXISTS
     os.makedirs(ct_folderPath, exist_ok=True)
     # GET TICKET PATH TO SAVE
-    ct_ticketNumber, ct_ticketPath = ct_getTicketNaming(ct_folderPath, ct_prefix)
+    ct_ticketNumber, ct_ticketPath = ct_getTicketNaming(ct_folderPath, ct_suffix)
     # UPDATE TICKET NUMBER
     st.session_state.ct_ticketData['TICKET_NUMBER'] = ct_ticketNumber
     # SAVE JSONL
@@ -130,9 +130,9 @@ def ct_dialogAddInfo():
     # CONSTANTS
     lsCountry = get_lsCountry()
     lsBL = get_lsBL()
-    
     lsStatus = get_lsStatus()
     lsRequestedBy = get_lsRequestedBy()
+
     with st.form(f"Create Ticket", clear_on_submit=False):
         st.subheader(f"{st.session_state.ct_ticketType} Ticket")
         st.markdown("<br>", unsafe_allow_html=True)   
@@ -141,12 +141,12 @@ def ct_dialogAddInfo():
         st.markdown('<hr style="margin: 10px 0px; border: 1px solid #ddd;">', unsafe_allow_html=True)  
         col1form2, col2form2 = st.columns(2)
         # FORM - MATERIAL
-        if st.session_state.ct_ticketType == 'Material':
-            lsServiceType = get_lsServiceType('Material')            
+        if st.session_state.ct_ticketType == 'Material - Creation':
+            # lsServiceType = get_lsServiceType('Material')            
             with col1form:
-                fill_SERVICE_TYPE = st.selectbox("**Service Type** *", options=lsServiceType, index=0, key="dialog_SERVICE_TYPE") 
+                fill_SERVICE_TYPE = st.selectbox("**Service Type** *", options=st.session_state.ct_ticketType, index=0, disabled=True, key="dialog_SERVICE_TYPE") 
                 fill_SAP_NAME = st.text_input("**SAP Name** *", key="dialog_SAP_NAME")
-                fill_SAP_CODE = st.text_input("SAP Code (Optional)", key="dialog_SAP_CODE")
+                fill_SAP_CODE = st.text_input("SAP Code (Optional for Draft and Request Document)", key="dialog_SAP_CODE")
                 fill_COUNTRY = st.selectbox("**Country** *", options=lsCountry, index=0, key="dialog_COUNTRY")
                 fill_BL_CD = st.selectbox("Business Line (Optional)", options=lsBL, index=0, key="dialog_BL_CD")
             with col2form:
@@ -159,12 +159,12 @@ def ct_dialogAddInfo():
                 fill_TICKET_CREATED_BY = st.text_input("Ticket Created By", value=auth_user, disabled=True, key="dialog_TICKET_CREATED_BY")  
                 fill_STATUS = st.selectbox("Status", options=lsStatus, index=0, disabled=True, key="dialog_STATUS")
         # FORM - CUSTOMER
-        elif st.session_state.ct_ticketType == 'Customer':
-            lsServiceType = get_lsServiceType('Customer')
+        elif st.session_state.ct_ticketType == 'Customer - Creation':
+            # lsServiceType = get_lsServiceType('Customer')
             with col1form:
-                fill_SERVICE_TYPE = st.selectbox("**Service Type** *", options=lsServiceType, index=0, key="dialog_SERVICE_TYPE") 
+                fill_SERVICE_TYPE = st.selectbox("**Service Type** *", options=st.session_state.ct_ticketType, index=0, disabled=True, key="dialog_SERVICE_TYPE") 
                 fill_SAP_NAME = st.text_input("**SAP Name** *", key="dialog_SAP_NAME")
-                fill_SAP_CODE = st.text_input("SAP Code (Optional)", key="dialog_SAP_CODE")
+                fill_SAP_CODE = st.text_input("SAP Code (Optional for Draft and Request Document)", key="dialog_SAP_CODE")
                 fill_COUNTRY = st.selectbox("**Country** *", options=lsCountry, index=0, key="dialog_COUNTRY")
                 fill_BL_CD = st.selectbox("Business Line (Optional)", options=lsBL, index=0, key="dialog_BL_CD")
             with col2form:                
@@ -177,12 +177,12 @@ def ct_dialogAddInfo():
                 fill_TICKET_CREATED_BY = st.text_input("Ticket Created By", value=auth_user, disabled=True, key="dialog_TICKET_CREATED_BY")  
                 fill_STATUS = st.selectbox("Status", options=lsStatus, index=0, disabled=True, key="dialog_STATUS")            
         # FORM - VENDOR
-        elif st.session_state.ct_ticketType == 'Vendor':
-            lsServiceType = get_lsServiceType('Vendor')
+        elif st.session_state.ct_ticketType == 'Vendor - Creation':
+            # lsServiceType = get_lsServiceType('Vendor')
             with col1form:
-                fill_SERVICE_TYPE = st.selectbox("**Service Type** *", options=lsServiceType, index=0, key="dialog_SERVICE_TYPE") 
+                fill_SERVICE_TYPE = st.selectbox("**Service Type** *", options=st.session_state.ct_ticketType, index=0, disabled=True, key="dialog_SERVICE_TYPE") 
                 fill_SAP_NAME = st.text_input("**SAP Name** *", key="dialog_SAP_NAME")
-                fill_SAP_CODE = st.text_input("SAP Code (Optional)", key="dialog_SAP_CODE")
+                fill_SAP_CODE = st.text_input("SAP Code (Optional for Draft and Request Document)", key="dialog_SAP_CODE")
                 fill_COUNTRY = st.selectbox("**Country** *", options=lsCountry, index=0, key="dialog_COUNTRY")
                 fill_BL_CD = st.selectbox("Business Line (Optional)", options=lsBL, index=0, key="dialog_BL_CD")
             with col2form:                
@@ -239,6 +239,9 @@ def ct_dialogAddInfo():
                 if fill_SAP_NAME == "":
                     chxerr += 1
                     st.error("Please enter a value for SAP Name. It cannot be empty.")
+                if fill_SAP_CODE == "":
+                    chxerr += 1
+                    st.error('For "Submit Ticket" Please provide SAP Code.')
                 if fill_REQUESTED_BY == "":
                     chxerr += 1
                     st.error("Please enter a value for Requested By. It cannot be empty.")
@@ -257,7 +260,9 @@ def ct_dialogAddInfo():
 @st.dialog('Syncing Ticket', dismissible=False)
 def ct_dialogConfirm():
     # GET ALL FILES
-    lsFullPath = listAllJsonl3cat()
+    headerPath = "ticketDatabase/ticketHeader/"
+    lsFullPath = [headerPath+x for x in listAllJsonl(headerPath)]
+    
     # REFRESH TICKET INDEX
     if st.session_state.ct_showProgressBar == True:
         stBar = st.progress(0, text="Syncing")
@@ -324,8 +329,8 @@ def ct_dialogConfirm():
         # FILL TICKET FOR VIEW
         st.session_state["vt_selTicketType"] = ticket_type
         st.session_state["vt_selTicketNumber"] = ticket_num
-        st.session_state["vt_selTicketHeaderPath"] = f"ticketDatabase/ticketHeader/{ticket_type}/{ticket_num}.jsonl"
-        st.session_state["vt_selTicketThreadPath"] = f"ticketDatabase/ticketThread/{ticket_type}/{ticket_num}.jsonl"
+        st.session_state["vt_selTicketHeaderPath"] = f"ticketDatabase/ticketHeader/{ticket_num}.jsonl"
+        st.session_state["vt_selTicketThreadPath"] = f"ticketDatabase/ticketThread/{ticket_num}.jsonl"
         st.session_state["vt_ticketHeader"] = []
         st.session_state["vt_ticketThread"] = []
         st.session_state["vt_editorKey"] = 0
@@ -360,8 +365,8 @@ else:
                 st.subheader("Material")
                 st.write("SOME NOTE HERE")
                 st.markdown("<br>", unsafe_allow_html=True)
-                if st.button("Create Material Ticket", type="secondary", use_container_width=True):
-                    st.session_state.ct_ticketType = 'Material'
+                if st.button("Material - Creation", type="secondary", use_container_width=True):
+                    st.session_state.ct_ticketType = 'Material - Creation'
                     st.session_state.ct_activeDialog = 1
                     st.rerun()
 
@@ -372,8 +377,8 @@ else:
                 st.subheader("Customer")
                 st.write("SOME NOTE HERE")
                 st.markdown("<br>", unsafe_allow_html=True)
-                if st.button("Create Customer Ticket", type="secondary", use_container_width=True):
-                    st.session_state.ct_ticketType = 'Customer'
+                if st.button("Customer - Creation", type="secondary", use_container_width=True):
+                    st.session_state.ct_ticketType = 'Customer - Creation'
                     st.session_state.ct_activeDialog = 1
                     st.rerun()
 
@@ -384,8 +389,8 @@ else:
                 st.subheader("Vendor")
                 st.write("SOME NOTE HERE")
                 st.markdown("<br>", unsafe_allow_html=True)
-                if st.button("Create Vendor Ticket", type="secondary", use_container_width=True):
-                    st.session_state.ct_ticketType = 'Vendor'
+                if st.button("Vendor - Creation", type="secondary", use_container_width=True):
+                    st.session_state.ct_ticketType = 'Vendor - Creation'
                     st.session_state.ct_activeDialog = 1
                     st.rerun()
 

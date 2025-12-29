@@ -31,6 +31,8 @@ if "vt_ticketThread" not in st.session_state:
     st.session_state.vt_ticketThread = []
 if "vt_editorKey" not in st.session_state:
     st.session_state.vt_editorKey = 0
+if "vt_selectNewStage" not in st.session_state:
+    st.session_state.vt_selectNewStage = None
 if "vt_diffHeader" not in st.session_state:
     st.session_state.vt_diffHeader = {}
 
@@ -65,9 +67,9 @@ def getDictDiff(oldData, newData):
             diff[key] = [oldVal, newVal]            
     return diff
 
-def saveWhenHeaderChanges(currentTicket, newTicketDict):
+def saveWhenHeaderChanges(vt_currentTicket, vt_newTicketDict):
     # LOG DIFF IN THREAD
-    st.session_state["vt_diffHeader"] = getDictDiff(currentTicket, newTicketDict)
+    st.session_state["vt_diffHeader"] = getDictDiff(vt_currentTicket, vt_newTicketDict)
     st.session_state["vt_diffHeader"].pop('LAST_MODIFIED_DTTM', None)
     st.session_state["vt_diffHeader"].pop('LAST_MODIFIED_BY', None)
     # ONLY SAVE CHANGED IF THERE IS CHANGE IN THE HEADER
@@ -76,7 +78,7 @@ def saveWhenHeaderChanges(currentTicket, newTicketDict):
         ### HEADER 
         # SAVE JSONL
         with open(st.session_state["vt_selTicketHeaderPath"], 'a', encoding='utf-8') as f:
-            jsonLine = json.dumps(newTicketDict)
+            jsonLine = json.dumps(vt_newTicketDict)
             f.write(jsonLine + "\n")
         # RELOAD
         st.session_state["vt_ticketHeader"] = vt_getFullJsonl(st.session_state["vt_selTicketHeaderPath"])    
@@ -109,7 +111,9 @@ def saveWhenHeaderChanges(currentTicket, newTicketDict):
     
         ### REGENERATE TICKET INDEX
         stBar = st.progress(0, text="Syncing")
-        lsFullPath = listAllJsonl3cat()
+        # GET ALL FILES
+        headerPath = "ticketDatabase/ticketHeader/"
+        lsFullPath = [headerPath+x for x in listAllJsonl(headerPath)]
         rowList = []
         with concurrent.futures.ThreadPoolExecutor() as executor:
             futures = [executor.submit(getLastRecordOfJsonl, fullPath) for fullPath in lsFullPath]            
@@ -133,136 +137,203 @@ def saveWhenHeaderChanges(currentTicket, newTicketDict):
             for csv in lscsv[10:]:
                 os.remove(f"ticketDatabase/ticketIndex/{csv}")
 
-@st.dialog('Change Ticket Stage')
-def vt_dialogChangeStage():
+@st.dialog('Confirm Change Stage')
+def vt_dialogConfirmChangeStage():
     # GET LATEST HEADER
-    currentTicket = st.session_state["vt_ticketHeader"][-1]
-    # LIST OPTIONS
-    lsStage = get_lsStage(currentTicket["STAGE"])
-    vt_newStage = st.selectbox("**Update Stage** *", options=lsStage, key="vt_newStage")
-    # CONDITION FOR CLOSURE
-    if vt_newStage == "99C Cancelled":
-        st.warning("You are cancelling this ticket. Please provide closure details.")
-        vt_closureCode = st.text_input("Closure Code *", key="vt_closureCode")
-        vt_closureNote = st.text_area("Closure Note *", key="vt_closureNote")
-    # BUTTON
-    if st.button("Save Changes"):
-        newTicketDict = currentTicket.copy()
-        # VALIDATION - 99C Cancelled - ERROR - CLOSURE CODE NOT FILLED
-        if vt_newStage == "99C Cancelled" and vt_closureCode == "":
-            st.error("Please fill in Closure Code.")
-        # VALIDATION - 99C Cancelled - PASS
-        elif vt_newStage == "99C Cancelled" and vt_closureNote != "":
-            newTicketDict['STAGE'] = vt_newStage
-            newTicketDict['STATUS'] = "Cancelled"
-            newTicketDict['TICKET_CLOSED_BY'] = st.session_state.auth_user
-            newTicketDict['TICKET_CLOSED_CODE'] = vt_closureCode
-            newTicketDict['TICKET_CLOSED_NOTE'] = vt_closureNote
-            newTicketDict['TICKET_CLOSED_DTTM'] = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
-            newTicketDict["LAST_MODIFIED_BY"] = st.session_state.auth_user
-            newTicketDict["LAST_MODIFIED_DTTM"] = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
-            saveWhenHeaderChanges(currentTicket, newTicketDict)
-            st.rerun()
-        # VALIDATION - 99A Sap Created - PASS
-        elif vt_newStage == "99A Sap Created":
-            newTicketDict['STAGE'] = vt_newStage
-            newTicketDict['STATUS'] = "Completed"
-            newTicketDict["LAST_MODIFIED_BY"] = st.session_state.auth_user
-            newTicketDict["LAST_MODIFIED_DTTM"] = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
-            saveWhenHeaderChanges(currentTicket, newTicketDict)
-            st.rerun()
-        # VALIDATION - OTHER
-        else:
-            newTicketDict['STAGE'] = vt_newStage
-            newTicketDict["LAST_MODIFIED_BY"] = st.session_state.auth_user
-            newTicketDict["LAST_MODIFIED_DTTM"] = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
-            saveWhenHeaderChanges(currentTicket, newTicketDict)
-            st.rerun()
+    vt_currentTicket = st.session_state["vt_ticketHeader"][-1]
+    # GET DIFF
+    vt_currentStage = vt_currentTicket["STAGE"]
+    vt_newStage = st.session_state["vt_selectNewStage"]
+    # BEFORE AFTER
+    st.info(f"**{vt_currentStage}** --> **{vt_newStage}**")
+    st.markdown("<br>", unsafe_allow_html=True)
 
-@st.dialog('Edit Ticket Info', width='large')
-def vt_dialogEditTicketInfo():
-    # CLEAN
-    st.session_state["vt_diffHeader"] = {}
-    # GET LATEST HEADER
-    currentTicket = st.session_state["vt_ticketHeader"][-1]
-    with st.form("frm_edit_ticket"):     
-        # ORGANIZE SIMILAR TO VIEW TICKET
-        col1, col2, col3 = st.columns(3)
-        with col1:            
-            # ROW 1            
-            st.subheader("Request Info")
-            # SPECIAL FIX TO NOT MAKE FIELD "vt_newRequestInquiryDate" POP UP DATE SELECTION BOX IN THE BEGINNING
-            reqDateVal = None
-            if currentTicket.get('REQUEST_INQUIRY_DATE'):
-                try: reqDateVal = datetime.datetime.strptime(currentTicket['REQUEST_INQUIRY_DATE'], "%Y-%m-%d").date()
-                except: pass
-            vt_newRequestInquiryDate = st.date_input("Request Inquiry Date", value=reqDateVal, format="YYYY-MM-DD", key="vt_newRequestInquiryDate")
-            st.markdown(f"Country: {currentTicket['COUNTRY'] or '-'}")
-            st.markdown(f"Business Line: {currentTicket['BL_CD'] or '-'}")
-            # ROW 2 
-            st.subheader("Classification")
-            st.markdown(f"Type: {currentTicket['TICKET_TYPE'] or '-'}")
-            st.markdown(f"Service Type: {currentTicket['SERVICE_TYPE'] or '-'}")
-            # ROW 3
-            st.subheader("SAP Details")
-            vt_newSapName = st.text_input("SAP Name", value=currentTicket['SAP_NAME'])
-            vt_newSapCode = st.text_input("SAP Code", value=currentTicket['SAP_CODE'])
-        with col2:
-            # ROW 1
-            st.subheader("Ref Ticket")
-            vt_newRefTicket = st.text_input("Ref Ticket", value=currentTicket['REFERENCE_TICKET_NUMBER'], key="vt_newRefTicket")
-            # ROW 2
-            st.subheader("Approval")
-            vt_newAppStatus = st.text_input("Approving Status", value=currentTicket['APPROVING_STATUS'], key="vt_newAppStatus")
-            try: vt_currentAppDate = datetime.datetime.strptime(currentTicket['APPROVING_DATE'], "%Y-%m-%d")
-            except: vt_currentAppDate = None
-            vt_newAppDate = st.date_input("Approving Date", value=vt_currentAppDate, format="YYYY-MM-DD", key="vt_newAppDate")
-            # ROW 3
-            st.subheader("Callback")
-            try: vt_currentCallbackDate = datetime.datetime.strptime(currentTicket['CALLBACK_DATE'], "%Y-%m-%d")
-            except: vt_currentCallbackDate = None
-            vt_newCallbackDate = st.date_input("Callback Date", value=vt_currentCallbackDate, format="YYYY-MM-DD", key="vt_newCallbackDate")
-            try: vt_currentCallbackTime = datetime.datetime.strptime(currentTicket['CALLBACK_TIME'], "%H:%M:%S")
-            except: vt_currentCallbackTime = None
-            vt_newCallbackTime = st.time_input("Callback Time", value=vt_currentCallbackTime, key="vt_newCallbackTime")  
-        with col3:
-            # ROW 1
-            st.subheader("Request Missing Document Date")
-            try: vt_currentRequestMissingDocDate = datetime.datetime.strptime(currentTicket['REQUEST_MISSING_DOC_DATE'], "%Y-%m-%d")
-            except: vt_currentRequestMissingDocDate = None
-            vt_newRequestMissingDocDate = st.date_input("Date", value=vt_currentRequestMissingDocDate, format="YYYY-MM-DD", key="vt_newRequestMissingDocDate")
-            # ROW 2
-            st.subheader("Save Changes")
-            if st.form_submit_button("Save Changes"):
-                newTicketDict = currentTicket.copy()
-                newTicketDict["REQUEST_INQUIRY_DATE"] = str(vt_newRequestInquiryDate) if str(vt_newRequestInquiryDate) != "None" else None
-                newTicketDict["SAP_NAME"] = vt_newSapName
-                newTicketDict["SAP_CODE"] = vt_newSapCode
-                newTicketDict["REFERENCE_TICKET_NUMBER"] = vt_newRefTicket
-                newTicketDict["APPROVING_STATUS"] = vt_newAppStatus
-                newTicketDict["APPROVING_DATE"] = str(vt_newAppDate) if str(vt_newAppDate) != "None" else None
-                newTicketDict["CALLBACK_DATE"] = str(vt_newCallbackDate) if str(vt_newCallbackDate) != "None" else None
-                newTicketDict["CALLBACK_TIME"] = str(vt_newCallbackTime) if str(vt_newCallbackTime) != "None" else None
-                newTicketDict["REQUEST_MISSING_DOC_DATE"] = str(vt_newRequestMissingDocDate) if str(vt_newRequestMissingDocDate) != "None" else None
-                newTicketDict["LAST_MODIFIED_BY"] = st.session_state.auth_user
-                newTicketDict["LAST_MODIFIED_DTTM"] = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
-                saveWhenHeaderChanges(currentTicket, newTicketDict)
+    st.markdown(vt_newStage)
+
+    with st.form("frm_confirm_stage"):
+
+        # CONDITIONAL INPUT - GOTO - 1 Requesting Documents
+        if vt_newStage == "1 Requesting Documents":
+            st.checkbox("(Ignore)", value=True)
+            # REQUESTED_BY
+            lsRequestedBy = get_lsRequestedBy()
+            vt_currentRequestedBy = vt_currentTicket["REQUESTED_BY"]
+            vt_newRequestedBy = st.selectbox("**Requested By** *", options=lsRequestedBy, index=lsRequestedBy.index(vt_currentRequestedBy), key="vt_newRequestedBy")
+            # COUNTRY
+            lsCountry = get_lsCountry()
+            vt_currentCountry = vt_currentTicket["COUNTRY"]
+            vt_newCountry = st.selectbox("**Country** *", options=lsCountry, index=lsCountry.index(vt_currentCountry), key="vt_newCountry")
+
+        # CONDITIONAL INPUT - GOTO - 2 Submitted
+        if vt_newStage == "2 Submitted":
+            # REQUESTED_BY
+            lsRequestedBy = get_lsRequestedBy()
+            vt_currentRequestedBy = vt_currentTicket["REQUESTED_BY"]
+            vt_newRequestedBy = st.selectbox("**Requested By** *", options=lsRequestedBy, index=lsRequestedBy.index(vt_currentRequestedBy), key="vt_newRequestedBy")
+            # COUNTRY
+            lsCountry = get_lsCountry()
+            vt_currentCountry = vt_currentTicket["COUNTRY"]
+            vt_newCountry = st.selectbox("**Country** *", options=lsCountry, index=lsCountry.index(vt_currentCountry), key="vt_newCountry")
+            # SAP_CODE
+            vt_sapCode = st.text_input("**SAP Code** *", value=vt_currentTicket["SAP_CODE"], key="vt_sapCode")
+
+        # CONDITIONAL INPUT - GOTO - 3A Approved or 99A SAP Created
+        if vt_newStage == "3A Approved or 99A SAP Created":
+            st.checkbox("(Ignore)", value=True)
+            # APPROVING_DATE
+            try: vt_currentAppDate = datetime.datetime.strptime(vt_currentTicket['APPROVING_DATE'], "%Y-%m-%d").date()
+            except (ValueError, TypeError, KeyError): vt_currentAppDate = None            
+            vt_newAppDate = st.date_input("Approving Date **(Will be locked)**", value=vt_currentAppDate, format="YYYY-MM-DD", 
+                                          key="vt_newAppDate")        
+            # SAP CREATED DATE
+            try: vt_currentSapCreatedDate = datetime.datetime.strptime(vt_currentTicket["SAP_CREATED_DATE"], "%Y-%m-%d").date()
+            except (ValueError, TypeError, KeyError): vt_currentSapCreatedDate = None            
+            vt_newSapCreatedDate = st.date_input("SAP Created Date **(If present, Ticket will closed as SAP Created)**", value=vt_currentSapCreatedDate, format="YYYY-MM-DD", 
+                                                 key="vt_newSapCreatedDate")
+            st.markdown("---")
+
+        # CONDITIONAL INPUT - GOTO - 3B Rejected/Resubmit
+        if vt_newStage == "3B Rejected/Resubmit":
+            st.checkbox("(Ignore)", value=True)
+            try: vt_currentRejectionDate = datetime.datetime.strptime(vt_currentTicket['REJECTION_DATE'], "%Y-%m-%d").date()
+            except (ValueError, TypeError, KeyError): vt_currentRejectionDate = None            
+            vt_newRejectionDate = st.date_input("Rejection Date", value=vt_currentRejectionDate, format="YYYY-MM-DD", key="vt_newRejectionDate")
+            st.markdown("---")
+
+        # CONDITIONAL INPUT - GOTO - 99A SAP Created
+        if vt_newStage == "99A SAP Created":
+            st.checkbox("(Ignore)", value=True)
+            try: vt_currentSapCreatedDate = datetime.datetime.strptime(vt_currentTicket["SAP_CREATED_DATE"], "%Y-%m-%d").date()
+            except (ValueError, TypeError, KeyError): vt_currentSapCreatedDate = None            
+            vt_newSapCreatedDate = st.date_input("SAP Created Date **(If present, Ticket will closed as SAP Created)**", value=vt_currentSapCreatedDate, format="YYYY-MM-DD", 
+                                                 key="vt_newSapCreatedDate")
+            st.markdown("---")
+
+        # CONDITIONAL INPUT - 99C Cancelled
+        if vt_newStage == "99C Cancelled":
+            st.warning("You are cancelling this ticket. Please provide closure details.")
+            vt_closureCode = st.selectbox("Closure Code *", options=get_lsClosureCode(), index=0, key="vt_closureCode")
+            vt_closureNote = st.text_area("Closure Note *", key="vt_closureNote")
+
+        
+        submitted = st.form_submit_button("Confirm")
+
+
+    # LOGIC AFTER SUBMIT
+    if submitted:
+        chxerr = 0
+        vt_newTicketDict = vt_currentTicket.copy()
+
+        if vt_newStage == "1 Requesting Documents":            
+            if vt_newRequestedBy == "":
+                chxerr += 1; st.error("**Requested By** cannot be blank")
+            if vt_newCountry == "":
+                chxerr += 1; st.error("**Country** cannot be blank")
+            if chxerr == 0:
+                vt_newTicketDict['STAGE'] = "1 Requesting Documents"
+                vt_newTicketDict["REQUESTED_BY"] = vt_newRequestedBy
+                vt_newTicketDict["COUNTRY"] = vt_newCountry
+                vt_newTicketDict["LAST_MODIFIED_BY"] = st.session_state.auth_user
+                vt_newTicketDict["LAST_MODIFIED_DTTM"] = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+                saveWhenHeaderChanges(vt_currentTicket, vt_newTicketDict)
+                st.session_state.vt_selectNewStage = None
                 st.rerun()
 
+        if vt_newStage == "2 Submitted":
+            if vt_sapCode == "":
+                chxerr += 1; st.error("**SAP Code** cannot be blank")
+            if vt_newRequestedBy == "":
+                chxerr += 1; st.error("**Requested By** cannot be blank")
+            if vt_newCountry == "":
+                chxerr += 1; st.error("**Country** cannot be blank")
+            if chxerr == 0:
+                vt_newTicketDict["STAGE"] = "2 Submitted"
+                vt_newTicketDict["SAP_CODE"] = vt_sapCode
+                vt_newTicketDict["REQUESTED_BY"] = vt_newRequestedBy
+                vt_newTicketDict["COUNTRY"] = vt_newCountry
+                vt_newTicketDict["LAST_MODIFIED_BY"] = st.session_state["auth_user"]
+                vt_newTicketDict["LAST_MODIFIED_DTTM"] = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+                saveWhenHeaderChanges(vt_currentTicket, vt_newTicketDict)
+                st.session_state.vt_selectNewStage = None
+                st.rerun()
 
+        if vt_newStage == "3A Approved or 99A SAP Created":
+            if vt_newAppDate is None:
+                chxerr += 1; st.error("**Approving Date** cannot be blank")
+            if vt_newAppDate is not None and vt_newSapCreatedDate is not None:
+                vt_newTicketDict['STAGE'] = "99A Sap Created"
+                vt_newTicketDict['STATUS'] = "Completed"
+                vt_newTicketDict['APPROVING_DATE'] = str(vt_newAppDate)
+                vt_newTicketDict['SAP_CREATED_DATE'] = str(vt_newSapCreatedDate)
+                vt_newTicketDict['TICKET_CLOSED_BY'] = st.session_state["auth_user"]
+                vt_newTicketDict['TICKET_CLOSED_CODE'] = "Change - Completed"
+                vt_newTicketDict['TICKET_CLOSED_NOTE'] = "Change - Completed"
+                vt_newTicketDict['TICKET_CLOSED_DTTM'] = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+                vt_newTicketDict["LAST_MODIFIED_BY"] = st.session_state["auth_user"]
+                vt_newTicketDict["LAST_MODIFIED_DTTM"] = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+                saveWhenHeaderChanges(vt_currentTicket, vt_newTicketDict)
+                st.session_state.vt_selectNewStage = None
+                st.rerun()   
+            if vt_newAppDate is not None and vt_newSapCreatedDate is None:
+                vt_newTicketDict['STAGE'] = "3A Approved"
+                vt_newTicketDict['APPROVING_DATE'] = str(vt_newAppDate)
+                vt_newTicketDict["LAST_MODIFIED_BY"] = st.session_state["auth_user"]
+                vt_newTicketDict["LAST_MODIFIED_DTTM"] = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+                saveWhenHeaderChanges(vt_currentTicket, vt_newTicketDict)
+                st.session_state.vt_selectNewStage = None
+                st.rerun()
+
+        if vt_newStage == "99A SAP Created":
+            if vt_newSapCreatedDate is None:
+                chxerr += 1; st.error("**SAP Created Date** cannot be blank")
+            if chxerr == 0:
+                vt_newTicketDict['STAGE'] = "99A Sap Created"
+                vt_newTicketDict['STATUS'] = "Completed"
+                vt_newTicketDict['SAP_CREATED_DATE'] = str(vt_newSapCreatedDate)
+                vt_newTicketDict['TICKET_CLOSED_BY'] = st.session_state["auth_user"]
+                vt_newTicketDict['TICKET_CLOSED_CODE'] = "Change - Completed"
+                vt_newTicketDict['TICKET_CLOSED_NOTE'] = "Change - Completed"
+                vt_newTicketDict['TICKET_CLOSED_DTTM'] = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+                vt_newTicketDict["LAST_MODIFIED_BY"] = st.session_state["auth_user"]
+                vt_newTicketDict["LAST_MODIFIED_DTTM"] = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+                saveWhenHeaderChanges(vt_currentTicket, vt_newTicketDict)
+                st.session_state.vt_selectNewStage = None
+                st.rerun()   
+
+        if vt_newStage == "3B Rejected/Resubmit":
+            if vt_newRejectionDate is None:
+                chxerr += 1; st.error("**Rejection Date** cannot be blank")
+            if chxerr == 0:
+                vt_newTicketDict['STAGE'] = "3B Rejected/Resubmit"
+                vt_newTicketDict['REJECTION_DATE'] = str(vt_newRejectionDate)
+                vt_newTicketDict["LAST_MODIFIED_BY"] = st.session_state["auth_user"]
+                vt_newTicketDict["LAST_MODIFIED_DTTM"] = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+                saveWhenHeaderChanges(vt_currentTicket, vt_newTicketDict)
+                st.session_state.vt_selectNewStage = None
+                st.rerun()   
+
+        if vt_newStage == "99C Cancelled":
+            if vt_closureCode == "":
+                chxerr += 1; st.error("**Closure Code** cannot be blank")
+            if vt_closureNote == "":
+                chxerr += 1; st.error("**Closure Note** cannot be blank")
+            if chxerr == 0:
+                vt_newTicketDict['STAGE'] = "99C Cancelled"
+                vt_newTicketDict['STATUS'] = "Cancelled"
+                vt_newTicketDict['TICKET_CLOSED_BY'] = st.session_state["auth_user"]
+                vt_newTicketDict['TICKET_CLOSED_CODE'] = vt_closureCode
+                vt_newTicketDict['TICKET_CLOSED_NOTE'] = vt_closureNote
+                vt_newTicketDict['TICKET_CLOSED_DTTM'] = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+                vt_newTicketDict["LAST_MODIFIED_BY"] = st.session_state["auth_user"]
+                vt_newTicketDict["LAST_MODIFIED_DTTM"] = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+                saveWhenHeaderChanges(vt_currentTicket, vt_newTicketDict)
+                st.session_state.vt_selectNewStage = None
+                st.rerun()
 
 def renderTicketHeader():
-    """
-    Render Ticket Header V2
-    - Top Row: Key Identity (Number + Status)
-    - Body: 4 Columns of logically grouped data (Scope, Object, Context, Audit)
-    """
-
     headerData = st.session_state["vt_ticketHeader"][-1]
-
     if not headerData:
         return
-    
     # HEADER BOX COLOR
     st.markdown("""
         <style>
@@ -274,10 +345,7 @@ def renderTicketHeader():
             background-color: #e2e8f0 !important; 
         }   
         </style>
-    """, unsafe_allow_html=True)
-
-    
-
+    """, unsafe_allow_html=True)   
     c1, c2 = st.columns([1,3])
     with c1:
         with st.container(border=True, key="ticketHeaderContainerL"):
@@ -286,19 +354,66 @@ def renderTicketHeader():
             st.markdown(f"### {headerData['TICKET_NUMBER']}")       
             # ROW 2
             st.caption("Status")
-            if headerData.get('STATUS') == "Completed":
-                st.success(f"**{headerData.get('STATUS')}**", icon="🟢")
+            if headerData["STATUS"] == "Completed":
+                st.success(f"**{headerData["STATUS"]}**", icon="🟢")
             elif headerData.get('STATUS') == "Cancelled":
-                st.error(f"**{headerData.get('STATUS')}**", icon="🔴")
+                st.error(f"**{headerData["STATUS"]}**", icon="🔴")
             else:
-                st.info(f"**{headerData.get('STATUS')}**", icon="🔵")    
+                st.info(f"**{headerData["STATUS"]}**", icon="🔵")    
             # ROW 3
             st.caption("Stage")
-            st.info(f"**{headerData.get('STAGE', '-')}**", icon="📌")
-            if headerData.get('STAGE') not in ["99A Sap Created", "99C Cancelled"]:    
-                if st.button("Change Stage", use_container_width=True, key="vt_stageEditButton"):
-                    vt_dialogChangeStage()
-            # ROW 4
+            if headerData["STAGE"] == "99A Sap Created":
+                st.success(f"**{headerData["STAGE"]}**", icon="📌")
+            elif headerData["STAGE"] == "99C Cancelled":
+                st.error(f"**{headerData["STAGE"]}**", icon="📌")
+            else:
+                st.info(f"**{headerData["STAGE"]}**", icon="📌")
+            # ROW 4            
+            if headerData["STAGE"] not in ["99A Sap Created", "99C Cancelled"]:
+
+                ########################
+                # SHOW ONLY NEXT STAGE #
+                ########################
+                st.caption("Stage Action")
+
+                if headerData["STAGE"] == "0 SaveDraft":
+                    if st.button("NEXT: (1) Requesting Documents", key="vt_stageMoveToRequestingDocuments"):
+                        st.session_state["vt_selectNewStage"] = "1 Requesting Documents"                        
+                        vt_dialogConfirmChangeStage()
+                    if st.button("NEXT: (2) Submitted", key="vt_stageMoveToSubmitted"):
+                        st.session_state["vt_selectNewStage"] = "2 Submitted"
+                        vt_dialogConfirmChangeStage()
+
+                elif headerData["STAGE"] == "1 Requesting Documents":
+                    if st.button("NEXT: (2) Submitted", key="vt_stageMoveToSubmitted"):
+                        st.session_state["vt_selectNewStage"] = "2 Submitted"
+                        vt_dialogConfirmChangeStage()
+
+                elif headerData["STAGE"] == "2 Submitted":
+                    if st.button("NEXT: (3A) Approved or (99A) SAP Created"):
+                        st.session_state["vt_selectNewStage"] = "3A Approved or 99A SAP Created"
+                        vt_dialogConfirmChangeStage()
+                    if st.button("NEXT: (3B) Rejected/Resubmit"):
+                        st.session_state["vt_selectNewStage"] = "3B Rejected/Resubmit"
+                        vt_dialogConfirmChangeStage()
+
+                elif headerData["STAGE"] == "3A Approved":
+                    if st.button("NEXT: (99A) SAP Created"):
+                        st.session_state["vt_selectNewStage"] = "99A SAP Created"
+                        vt_dialogConfirmChangeStage()
+
+                elif headerData["STAGE"] == "3B Rejected/Resubmit":
+                    if st.button("NEXT: (1) Requesting Documents", key="vt_stageMoveToRequestingDocuments"):
+                        st.session_state["vt_selectNewStage"] = "1 Requesting Documents"                        
+                        vt_dialogConfirmChangeStage()
+
+                if st.button("Cancel Ticket", key="vt_stageMoveToCancelled"):
+                    st.session_state["vt_selectNewStage"] = "99C Cancelled"
+                    vt_dialogConfirmChangeStage()
+
+
+
+            # ROW 5
             st.markdown(f"**Created:** {headerData.get('TICKET_CREATED_BY', '-')} ({headerData.get('TICKET_CREATE_DTTM', '-')})")
 
     with c2:
@@ -320,6 +435,8 @@ def renderTicketHeader():
                 st.caption("SAP Details")
                 st.markdown(f"**SAP Name:** {headerData.get('SAP_NAME', '-') or '-'}")
                 st.markdown(f"**SAP Code:** {headerData.get('SAP_CODE', '-') or '-'}")
+                st.markdown(f"**SAP Created Date:** {headerData["SAP_CREATED_DATE"] or "-"}")
+
             # COL 2
             with c2c2:
                 # ROW 1
@@ -329,6 +446,7 @@ def renderTicketHeader():
                 st.caption("Approval")
                 st.markdown(f"**Approving Status:** {headerData.get('APPROVING_STATUS', '-') or '-'}")
                 st.markdown(f"**Approving Date:** {headerData.get('APPROVING_DATE', '-') or '-'}")
+                st.markdown(f"**Rejection Date:** {headerData["REJECTION_DATE"] or "-"}")
                 # ROW 3
                 st.caption("Callback")
                 st.markdown(f"**Callback Date:** {headerData.get('CALLBACK_DATE', '-') or '-'}")
@@ -341,11 +459,13 @@ def renderTicketHeader():
             with c2c3:
                 # ROW 1
                 st.caption("Closing Details")
-                with st.expander('Closing Details'):
+                expandCond = True if headerData["STATUS"] in ["Completed", "Cancelled"] else False    
+                with st.expander('Closing Details', expanded=expandCond):
                     st.markdown(f"**Closed By:** {headerData.get('TICKET_CLOSED_BY', '-') or '-'}")
                     st.markdown(f"**Closed Date:** {headerData.get('TICKET_CLOSED_DTTM', '-') or '-'}")
                     st.markdown(f"**Closed Code:** {headerData.get('TICKET_CLOSED_CODE', '-') or '-'}")
                     st.markdown(f"**Closed Note:** {headerData.get('TICKET_CLOSED_NOTE', '-') or '-'}")
+
                 # ROW 2
                 if headerData.get('STAGE') not in ["99A Sap Created", "99C Cancelled"]: 
                     st.caption("Edit Info")
@@ -354,6 +474,82 @@ def renderTicketHeader():
                 # ROW 3
                 st.caption("Last Modified")
                 st.markdown(f"{headerData.get('LAST_MODIFIED_BY', '-') or '-'} ({headerData.get('LAST_MODIFIED_DTTM', '-') or '-'})")
+
+
+@st.dialog('Edit Ticket Info', width='large')
+def vt_dialogEditTicketInfo():
+    # CLEAN
+    st.session_state["vt_diffHeader"] = {}
+    # GET LATEST HEADER
+    currentTicket = st.session_state["vt_ticketHeader"][-1]
+    with st.form("frm_edit_ticket"):     
+        st.checkbox("(Ignore)", value=True)
+        # ORGANIZE SIMILAR TO VIEW TICKET
+        col1, col2, col3 = st.columns(3)
+        with col1:            
+            # ROW 1 
+            try: vt_currentRequestInquiryDate = datetime.datetime.strptime(currentTicket["REQUEST_INQUIRY_DATE"], "%Y-%m-%d").date()
+            except: vt_currentRequestInquiryDate = None      
+            vt_newRequestInquiryDate = st.date_input("Request Inquiry Date", value=vt_currentRequestInquiryDate, format="YYYY-MM-DD", key="vt_newRequestInquiryDate")
+            st.markdown(f"Country: {currentTicket["COUNTRY"] or '-'}")
+            st.markdown(f"Business Line: {currentTicket["BL_CD"] or "-"}")
+            # ROW 2 
+            st.subheader("Classification")
+            st.markdown(f"Type: {currentTicket["TICKET_TYPE"] or "-"}")
+            st.markdown(f"Service Type: {currentTicket["SERVICE_TYPE"] or "-"}")
+            # ROW 3
+            st.subheader("SAP Details")
+            vt_newSapName = st.text_input("SAP Name", value=currentTicket["SAP_NAME"], key="vt_newSapName")
+            vt_newSapCode = st.text_input("SAP Code", value=currentTicket["SAP_CODE"], key="vt_newSapCode")
+            try: vt_currentSapCreatedDate = datetime.datetime.strptime(currentTicket["SAP_CREATED_DATE"], "%Y-%m-%d").date()
+            except: vt_currentSapCreatedDate = None
+            vt_newSapCreatedDate = st.date_input("SAP Created Date", value=vt_currentSapCreatedDate, format="YYYY-MM-DD", key="vt_newSapCreatedDate")
+        with col2:
+            # ROW 1
+            st.subheader("Ref Ticket")
+            vt_newRefTicket = st.text_input("Ref Ticket", value=currentTicket['REFERENCE_TICKET_NUMBER'], key="vt_newRefTicket")
+            # ROW 2
+            st.subheader("Approval")
+            vt_newAppStatus = st.text_input("Approving Status", value=currentTicket['APPROVING_STATUS'], key="vt_newAppStatus")
+            try: vt_currentAppDate = datetime.datetime.strptime(currentTicket['APPROVING_DATE'], "%Y-%m-%d").date()
+            except: vt_currentAppDate = None
+            vt_newAppDate = st.date_input("Approving Date", value=vt_currentAppDate, format="YYYY-MM-DD", disabled=True, key="vt_newAppDate")        
+            try: vt_currentRejectionDate = datetime.datetime.strptime(currentTicket['REJECTION_DATE'], "%Y-%m-%d").date()
+            except: vt_currentRejectionDate = None
+            vt_newRejectionDate = st.date_input("Rejection Date", value=vt_currentRejectionDate, format="YYYY-MM-DD", key="vt_newRejectionDate")
+            # ROW 3
+            st.subheader("Callback")
+            try: vt_currentCallbackDate = datetime.datetime.strptime(currentTicket['CALLBACK_DATE'], "%Y-%m-%d").date()
+            except: vt_currentCallbackDate = None
+            vt_newCallbackDate = st.date_input("Callback Date", value=vt_currentCallbackDate, format="YYYY-MM-DD", key="vt_newCallbackDate")
+            try: vt_currentCallbackTime = datetime.datetime.strptime(currentTicket['CALLBACK_TIME'], "%H:%M:%S").date()
+            except: vt_currentCallbackTime = None
+            vt_newCallbackTime = st.time_input("Callback Time", value=vt_currentCallbackTime, key="vt_newCallbackTime")  
+        with col3:
+            # ROW 1
+            st.subheader("Request Missing Document Date")
+            try: vt_currentRequestMissingDocDate = datetime.datetime.strptime(currentTicket['REQUEST_MISSING_DOC_DATE'], "%Y-%m-%d").date()
+            except: vt_currentRequestMissingDocDate = None
+            vt_newRequestMissingDocDate = st.date_input("Date", value=vt_currentRequestMissingDocDate, format="YYYY-MM-DD", key="vt_newRequestMissingDocDate")
+            # ROW 2
+            st.subheader("Save Changes")
+            if st.form_submit_button("Save Changes"):
+                newTicketDict = currentTicket.copy()
+                newTicketDict["REQUEST_INQUIRY_DATE"] = str(vt_newRequestInquiryDate) if str(vt_newRequestInquiryDate) != "None" else None
+                newTicketDict["SAP_NAME"] = vt_newSapName
+                newTicketDict["SAP_CODE"] = vt_newSapCode
+                newTicketDict["SAP_CREATED_DATE"] = str(vt_newSapCreatedDate) if str(vt_newSapCreatedDate) != "None" else None
+                newTicketDict["REFERENCE_TICKET_NUMBER"] = vt_newRefTicket
+                newTicketDict["APPROVING_STATUS"] = vt_newAppStatus
+                newTicketDict["APPROVING_DATE"] = str(vt_newAppDate) if str(vt_newAppDate) != "None" else None
+                newTicketDict["REJECTION_DATE"] = str(vt_newRejectionDate) if str(vt_newRejectionDate) != "None" else None
+                newTicketDict["CALLBACK_DATE"] = str(vt_newCallbackDate) if str(vt_newCallbackDate) != "None" else None
+                newTicketDict["CALLBACK_TIME"] = str(vt_newCallbackTime) if str(vt_newCallbackTime) != "None" else None
+                newTicketDict["REQUEST_MISSING_DOC_DATE"] = str(vt_newRequestMissingDocDate) if str(vt_newRequestMissingDocDate) != "None" else None
+                newTicketDict["LAST_MODIFIED_BY"] = st.session_state.auth_user
+                newTicketDict["LAST_MODIFIED_DTTM"] = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+                saveWhenHeaderChanges(currentTicket, newTicketDict)
+                st.rerun()
 
 #############
 # MAIN BODY #

@@ -70,7 +70,22 @@ else:
 
 st.caption("Changelog")
 
-st.code("""        
+st.code("""    
+[V0.15-alpha] - 2025-12-29
+- API country management
+    /V01/countryGetAll
+    /V01/countryAdd
+    /V01/countryDelete
+- API refresh "requestedBY" from another API
+    /V01/requestedByRefreshList
+- Revise stage flow as meeting on 2025-12-26
+        
+[V0.14-alpha] - 2025-12-26    
+- API user management + Change Auth system
+    /V01/userGetAll
+    /V01/userAdd
+    /V01/userDelete
+
 [V0.13-alpha] - 2025-12-25
 - Fix routing to allow access both streamlit and api from one url 
         

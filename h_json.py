@@ -9,14 +9,6 @@ def listAllJsonl(folderPath):
     filenames = [x for x in filenames if x.endswith('.jsonl')]
     return filenames
 
-def listAllJsonl3cat():    
-    lsFullPath = []
-    for ttype in ['Material','Customer','Vendor']:
-        lsFile = listAllJsonl(f'ticketDatabase/ticketHeader/{ttype}/')
-        lsFullPathtype = ['ticketDatabase/ticketHeader/'+ttype+'/'+x for x in lsFile]
-        lsFullPath += lsFullPathtype
-    return lsFullPath
-
 def getLastRecordOfJsonl(fullPath):
     try:
         last_line = None

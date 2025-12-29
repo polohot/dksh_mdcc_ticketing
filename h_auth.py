@@ -4,6 +4,7 @@ load_dotenv()
 import math
 import os
 import time
+import json
 from datetime import datetime, timedelta, timezone
 
 import streamlit as st
@@ -21,11 +22,10 @@ if "auth_exp_dt" not in st.session_state:
 COOKIE_PREFIX = "dksh-mdcc-ticketing/hehe/"
 # PASSWORD TO USERNAME MAPPING
 PASSWORD_TO_USER = {}
-for k, v in os.environ.items():
-    if k.startswith("USER_") and v:
-        username = k.removeprefix("USER_")
-        password = v
-        PASSWORD_TO_USER[password] = username
+with open("sysDatabase/login.jsonl", "r") as f:
+    for line in f:
+        row = json.loads(line)
+        PASSWORD_TO_USER[row["password"]] = row["user"]
 LOGIN_DAYS = 30
 
 def _utcnow():
@@ -38,7 +38,7 @@ def _parse_dt(value):
         return None
 
 def get_cookie_manager():
-    cookies_password = os.getenv("COOKIES_PASSWORD", "")
+    cookies_password = 'change-this-to-a-long-random-secret'
     if not cookies_password:
         st.error("Missing COOKIES_PASSWORD in .env")
         st.stop()
